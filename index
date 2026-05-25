@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yaroi game</title>
+    <style>
+        /* Zmienne CSS do łatwej zmiany motywu */
+        :root {
+            --bg-color: #f0f2f5;
+            --text-color: #333;
+            --panel-bg: #ffffff;
+            --cell-bg: #bbb;
+            --cell-hover: #aaa;
+            --cell-revealed: #ddd;
+            --board-bg: #ccc;
+            --border-color: #ddd;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --text-color: #f0f2f5;
+            --panel-bg: #2d2d2d;
+            --cell-bg: #444;
+            --cell-hover: #555;
+            --cell-revealed: #222;
+            --board-bg: #333;
+            --border-color: #444;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        h1 {
+            margin: 5px 0;
+            letter-spacing: 1px;
+        }
+
+        /* Górny panel (Timer, Życia, Kontrolki) */
+        #top-bar {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 20px;
+            background-color: var(--panel-bg);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        /* Pasek postępu czasu */
+        #progress-container {
+            width: 100%;
+            background-color: #e0e0e0;
+            height: 12px;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        #progress-bar {
+            width: 100%;
+            height: 100%;
+            background-color: #28a745;
+            transition: width 1s linear, background-color 0.5s;
+        }
+
+        /* Główny układ gry (Plansza + Instrukcja) */
+        #main-container {
+            display: flex;
+            flex-direction: row;
+            gap: 30px;
+            align-items: flex-start;
+            justify-content: center;
+            max-width: 850px;
+            width: 100%;
+        }
+
+        /* Plansza - 3 kolumny po 50px dla lepszej widoczności w małym formacie */
+        #board {
+            display: grid;
+            grid-template-columns: repeat(3, 50px);
+            grid-template-rows: repeat(3, 50px);
+            gap: 4px;
+            background-color: var(--board-bg);
+            padding: 8px;
+            border-radius: 5px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+
+        .cell {
+            width: 50px;
+            height: 50px;
+            background-color: var(--cell-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            border-radius: 4px;
+            font-size: 22px;
+        }
+
+        .cell:hover {
+            background-color: var(--cell-hover);
+        }
+
+        .cell.revealed {
+            background-color: var(--cell-revealed);
+            cursor: default;
+        }
+
+        .cell.mine {
+            background-color: #ff4d4d;
+        }
+
+        .cell.flag {
+            background-color: #ffcc00;
+        }
+
+        /* Panel Instrukcji po prawej */
+        #instructions {
+            background-color: var(--panel-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            max-width: 300px;
+            border: 1px solid var(--border-color);
+        }
+
+        #instructions h3 {
+            margin-top: 0;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 5px;
+        }
+
+        #instructions h4 {
+            margin: 15px 0 5px 0;
+            color: #555;
+        }
+        [data-theme="dark"] #instructions h4 {
+            color: #bbb;
+        }
+
+        #instructions ul {
+            padding-left: 20px;
+            margin: 5px 0;
+        }
+
+        #instructions li {
+            margin-bottom: 8px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .lang-legend {
+            list-style: none;
+            padding-left: 0 !important;
+        }
+
+        .lang-legend li {
+            font-size: 15px;
+            font-weight: bold;
+            margin-bottom: 4px !important;
+        }
+
+        /* Przyciski */
+        button {
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #theme-btn {
+            background-color: #6c757d;
+        }
+        #theme-btn:hover {
+            background-color: #5a6268;
+        }
+
+        /* Kolory japońskich cyfr */
+        .count-1 { color: #0066ff; }
+        .count-2 { color: #009900; }
+        .count-3 { color: #cc0000; }
+        .count-4 { color: #000066; }
+        .count-5 { color: #660000; }
+        .count-6 { color: #009999; }
+        .count-7 { color: #000000; }
+        .count-8 { color: #888888; }
+        [data-theme="dark"] .count-7 { color: #ffffff; }
+
+        /* RWD */
+        @media (max-width: 600px) {
+            #main-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            #instructions {
+                max-width: 450px;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Yaroi game</h1>
+
+    <div id="top-bar">
+        <div class="stats-row">
+            <span id="lives-display">Życia: ❤️❤️</span>
+            <span id="timer-display">Czas: 25:00</span>
+            <div>
+                <button id="theme-btn" onclick="toggleTheme()">Zmień Motyw 🌗</button>
+                <button onclick="initGame()">Reset 🔄</button>
+            </div>
+        </div>
+        <div id="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+    </div>
+
+    <div id="main-container">
+        <div id="board"></div>
+
+        <div id="instructions">
+            <h3>Instrukcja obsługi</h3>
+            <ul>
+                <li><strong>LPM:</strong> Odkrywa wybrane pole.</li>
+                <li><strong>PPM:</strong> Stawia lub ściąga flagę 🚩.</li>
+                <li><strong>Makieta 3x3:</strong> Na planszy ukryte są dokładnie 3 pigułki.</li>
+                <li><strong>Życia:</strong> Masz 2 życia. Drugi błąd kończy grę.</li>
+                <li><strong>Czas:</strong> Masz dokładnie 25 minut.</li>
+            </ul>
+
+            <h4>Słowniczek japońskich cyfr:</h4>
+            <ul class="lang-legend">
+                <li style="color: #0066ff;">一 (1) - Niebieski</li>
+                <li style="color: #009900;">二 (2) - Zielony</li>
+                <li style="color: #cc0000;">三 (3) - Czerwony</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const BOARD_SIZE = 3;
+        const MINE_COUNT = 3; // Dokładnie 3 pigułki na planszy 3x3
+        const TOTAL_TIME = 25 * 60; 
+
+        const kanjiNumbers = {
+            1: '一', 2: '二', 3: '三', 4: '四',
+            5: '五', 6: '六', 7: '七', 8: '八'
+        };
+
+        let board = [];
+        let gameOver = false;
+        let lives = 2; 
+        let timeRemaining = TOTAL_TIME;
+        let timerInterval = null;
+
+        const boardElement = document.getElementById('board');
+        const livesDisplay = document.getElementById('lives-display');
+        const timerDisplay = document.getElementById('timer-display');
+        const progressBar = document.getElementById('progress-bar');
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            if (currentTheme === 'dark') {
+                document.documentElement.removeAttribute('data-theme');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        }
+
+        function initGame() {
+            boardElement.innerHTML = '';
+            board = [];
+            gameOver = false;
+            lives = 2; 
+            timeRemaining = TOTAL_TIME;
+            updateLivesDisplay();
+            updateTimerDisplay();
+            
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(updateTime, 1000);
+
+            // 1. Generowanie planszy 3x3
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                board[r] = [];
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    board[r][c] = {
+                        row: r,
+                        col: c,
+                        isMine: false,
+                        isRevealed: false,
+                        isFlagged: false,
+                        neighborMines: 0,
+                        element: null
+                    };
+                }
+            }
+
+            // 2. Losowe ukrywanie 3 pigułek
+            let minesPlaced = 0;
+            while (minesPlaced < MINE_COUNT) {
+                let r = Math.floor(Math.random() * BOARD_SIZE);
+                let c = Math.floor(Math.random() * BOARD_SIZE);
+                if (!board[r][c].isMine) {
+                    board[r][c].isMine = true;
+                    minesPlaced++;
+                }
+            }
+
+            // 3. Obliczanie cyfr sąsiedztwa
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (!board[r][c].isMine) {
+                        board[r][c].neighborMines = countMinesAround(r, c);
+                    }
+                }
+            }
+
+            // 4. Budowanie elementów HTML
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const cellEl = document.createElement('div');
+                    cellEl.classList.add('cell');
+                    
+                    cellEl.addEventListener('click', () => revealCell(r, c));
+                    cellEl.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        toggleFlag(r, c);
+                    });
+
+                    boardElement.appendChild(cellEl);
+                    board[r][c].element = cellEl;
+                }
+            }
+        }
+
+        function countMinesAround(row, col) {
+            let count = 0;
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    let nr = row + dr;
+                    let nc = col + dc;
+                    if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
+                        if (board[nr][nc].isMine) count++;
+                    }
+                }
+            }
+            return count;
+        }
+
+        function revealCell(row, col) {
+            if (gameOver) return;
+            let cell = board[row][col];
+            if (cell.isRevealed || cell.isFlagged) return;
+
+            cell.isRevealed = true;
+            cell.element.classList.add('revealed');
+
+            // Trafienie na pigułkę
+            if (cell.isMine) {
+                cell.element.classList.add('mine');
+                cell.element.innerText = '💊';
+                lives--;
+                updateLivesDisplay();
+
+                if (lives <= 0) {
+                    endGame(false, "bomba jebła");
+                }
+                return;
+            }
+
+            // Bezpieczne pola
+            if (cell.neighborMines > 0) {
+                cell.element.innerText = kanjiNumbers[cell.neighborMines];
+                cell.element.classList.add(`count-${cell.neighborMines}`);
+            } else {
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        let nr = row + dr;
+                        let nc = col + dc;
+                        if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
+                            revealCell(nr, nc);
+                        }
+                    }
+                }
+            }
+
+            checkWin();
+        }
+
+        function toggleFlag(row, col) {
+            if (gameOver) return;
+            let cell = board[row][col];
+            if (cell.isRevealed) return;
+
+            cell.isFlagged = !cell.isFlagged;
+            if (cell.isFlagged) {
+                cell.element.classList.add('flag');
+                cell.element.innerText = '🚩';
+            } else {
+                cell.element.classList.remove('flag');
+                cell.element.innerText = '';
+            }
+        }
+
+        function updateTime() {
+            if (gameOver) return;
+            timeRemaining--;
+            updateTimerDisplay();
+
+            const percentage = (timeRemaining / TOTAL_TIME) * 100;
+            progressBar.style.width = percentage + "%";
+
+            if (percentage < 20) {
+                progressBar.style.backgroundColor = "#dc3545";
+            } else if (percentage < 50) {
+                progressBar.style.backgroundColor = "#ffc107";
+            } else {
+                progressBar.style.backgroundColor = "#28a745";
+            }
+
+            if (timeRemaining <= 0) {
+                endGame(false, "Twój czas się skończył");
+            }
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeRemaining / 60);
+            const seconds = timeRemaining % 60;
+            timerDisplay.innerText = `Czas: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+        }
+
+        function updateLivesDisplay() {
+            let hearts = "";
+            for (let i = 0; i < 2; i++) {
+                hearts += i < lives ? "❤️" : "🖤";
+            }
+            livesDisplay.innerText = `Życia: ${hearts}`;
+        }
+
+        function checkWin() {
+            let win = true;
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (!board[r][c].isMine && !board[r][c].isRevealed) {
+                        win = false;
+                    }
+                }
+            }
+            if (win) endGame(true, "Tym razem ci się udało");
+        }
+
+        function endGame(isWin, message) {
+            gameOver = true;
+            clearInterval(timerInterval);
+            
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (board[r][c].isMine) {
+                        board[r][c].element.classList.add('mine');
+                        board[r][c].element.innerText = '💊';
+                    }
+                }
+            }
+            
+            setTimeout(() => {
+                alert(message);
+                if (isWin) {
+                    window.location.href = "https://www.youtube.com/watch?v=F0BxpGnPX5g";
+                }
+            }, 100);
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
